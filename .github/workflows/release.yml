@@ -1,0 +1,50 @@
+name: Build Release Package
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build
+        run: yarn build
+
+      - name: Pack npm package
+        run: |
+          npm pack
+          SHORT_SHA="${GITHUB_SHA::7}"
+          FILE="react-native-picker-${SHORT_SHA}.tgz"
+          mv *.tgz "$FILE"
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.SHORT_SHA }}
+          name: ${{ env.SHORT_SHA }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: false
+          make_latest: false
+          files: ${{ env.FILE }}
